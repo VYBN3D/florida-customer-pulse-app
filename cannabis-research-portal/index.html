@@ -1,14 +1,41 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#14251e"><meta name="description" content="Private mobile portal for VYBN cannabis research operations and corpus search"><title>VYBN Research Portal</title><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./assets/vybn-logo.png"><link rel="stylesheet" href="./styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../config.js"></script></head>
-<body><div id="auth" class="auth-wrap"><div class="auth-card"><img src="./assets/vybn-logo.png" alt="VYBN" class="auth-logo"><p class="eyebrow">PRIVATE RESEARCH NETWORK</p><h1>Research Portal</h1><p class="muted">Sign in with your Florida Customer Pulse account.</p><form id="login-form"><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><button class="primary full" type="submit">Sign in</button><p id="auth-error" class="error" role="alert"></p></form><p class="fine">Invitation-only access · Secure Supabase sign-in</p></div></div>
-<div id="app" class="app hidden"><header class="topbar"><div class="brand"><img src="./assets/vybn-logo.png" alt=""><div><strong>VYBN <span>RESEARCH</span></strong><small> CANNABIS KNOWLEDGE PORTAL</small></div></div><button id="signout" class="icon-button" aria-label="Sign out">↗</button></header>
-<main><section class="welcome"><div><p class="eyebrow">OPERATIONS INTELLIGENCE</p><h1>Research, at a glance.</h1><p class="muted">Your Mac is the engine. This portal is your remote window.</p></div><div class="connection" id="connection"><i></i><span>Connecting</span></div></section>
-<nav class="tabs" aria-label="Portal sections"><button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="search">Dataset search</button></nav>
-<section id="overview" class="view"><div class="hero-card"><div class="hero-top"><div><p class="eyebrow light">SCRAPER PIPELINE</p><h2 id="pipeline-state">Waiting for Mac</h2><p id="pipeline-detail">The portal will display the latest heartbeat here.</p></div><div class="pulse-mark"><span></span></div></div><div class="hero-meta"><span id="heartbeat">Last heartbeat: not received</span><span id="build">Build —</span></div></div>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14251e">
+<meta name="description" content="Private mobile portal for cannabis research operations, public regulator resources and corpus search">
+<title>VYBN Research Portal</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./assets/vybn-logo.png">
+<link rel="stylesheet" href="./styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+</head>
+<body>
+<div id="auth" class="auth-wrap"><div class="auth-card"><img src="./assets/vybn-logo.png" alt="VYBN" class="auth-logo"><p class="eyebrow">PRIVATE RESEARCH NETWORK</p><h1>Research Portal</h1><p class="muted">Sign in with your Florida Customer Pulse account.</p><form id="login-form"><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><button class="primary full" type="submit">Sign in</button><p id="auth-error" class="error" role="alert"></p></form><p class="fine">Invitation-only access · Secure Supabase sign-in</p></div></div>
+<div id="app" class="app hidden">
+<header class="topbar"><div class="brand"><img src="./assets/vybn-logo.png" alt=""><div><strong>VYBN <span>RESEARCH</span></strong><small>CANNABIS KNOWLEDGE PORTAL</small></div></div><button id="signout" class="icon-button" aria-label="Sign out">↗</button></header>
+<main>
+<section class="welcome"><div><p class="eyebrow">OPERATIONS INTELLIGENCE</p><h1>Research, at a glance.</h1><p class="muted">Your Mac is the engine. This portal is your remote window.</p></div><div class="connection" id="connection"><i></i><span>Connecting</span></div></section>
+<nav class="tabs" aria-label="Portal sections"><button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="resources">Resources</button><button class="tab" data-tab="search">Search</button></nav>
+<section id="overview" class="view">
+<div class="hero-card"><div class="hero-top"><div><p class="eyebrow light">SCRAPER PIPELINE</p><h2 id="pipeline-state">Waiting for Mac</h2><p id="pipeline-detail">The portal will display the latest heartbeat here.</p></div><div class="pulse-mark"><span></span></div></div><div class="hero-meta"><span id="heartbeat">Last heartbeat: not received</span><span id="build">Build —</span></div></div>
 <section class="control-card"><div class="control-head"><div><p class="eyebrow light">REMOTE CONTROLS</p><h2>Scraper controls</h2><p id="control-caption">Commands are sent securely to your Mac.</p></div><span id="control-state" class="control-state">CHECKING</span></div><div class="cooldown-row"><div><span class="cooldown-label">CURRENT PHASE</span><strong id="cooldown-phase">Checking pipeline…</strong></div><div class="timer-wrap"><span class="cooldown-label">COOLDOWN TIMER</span><strong id="cooldown-timer">--:--</strong></div></div><div class="control-actions"><button id="start-scraper" class="control-start" type="button">▶ Start scraper</button><button id="stop-scraper" class="control-stop" type="button">■ Stop scraper</button></div><p id="control-message" class="control-message" aria-live="polite">Waiting for a live Mac connection.</p></section>
 <div class="metric-grid"><article class="metric"><span>Corpus records</span><strong id="metric-records">—</strong><small>Indexed across datasets</small></article><article class="metric"><span>Source files</span><strong id="metric-files">—</strong><small>Tracked in corpus manifest</small></article><article class="metric"><span>Active collectors</span><strong id="metric-active">—</strong><small>Live process snapshot</small></article><article class="metric"><span>Driver runtime</span><strong id="metric-runtime">—</strong><small id="metric-driver">Main pipeline</small></article></div>
 <section class="panel"><div class="section-head"><div><p class="eyebrow">LIVE OPERATIONS</p><h2>Collector activity</h2></div><span class="count" id="collector-count">0</span></div><div id="collectors" class="collector-list"><div class="empty">Waiting for the first status update…</div></div></section>
 <section class="panel"><div class="section-head"><div><p class="eyebrow">CORPUS COVERAGE</p><h2>Datasets</h2></div><span class="count" id="dataset-count">0</span></div><div id="datasets" class="dataset-list"></div></section>
-<section class="panel activity-panel"><div class="section-head"><div><p class="eyebrow">RECENT EVENTS</p><h2>Pipeline notes</h2></div></div><div id="activity" class="activity-list"><div class="empty">No recent events yet.</div></div></section></section>
+<section class="panel activity-panel"><div class="section-head"><div><p class="eyebrow">RECENT EVENTS</p><h2>Pipeline notes</h2></div></div><div id="activity" class="activity-list"><div class="empty">No recent events yet.</div></div></section>
+</section>
+<section id="resources" class="view hidden">
+<div class="search-intro"><p class="eyebrow">PRIMARY-SOURCE DIRECTORY</p><h2>Public cannabis records.</h2><p class="muted">Official state and federal regulator resources, with live collection status. A listed source is not marked collected until the scraper verifies it.</p></div>
+<div class="resource-summary"><strong id="resource-count">0 resources</strong><span id="resource-updated">Waiting for live resource registry</span></div>
+<div class="resource-filters"><input id="resource-search" type="search" placeholder="Search agency, state, or record type" aria-label="Search resources"><select id="resource-state" aria-label="Filter by jurisdiction"><option value="">All jurisdictions</option></select></div>
+<div id="resource-list" class="resource-list"><div class="empty">Waiting for the live resource directory…</div></div>
+<p class="resource-note">Coverage includes public licensing, enforcement, inspections, testing and recalls, rules, legislation, meetings, agency reports, market data and public filings. Patient-identifying registry data is excluded.</p>
+</section>
 <section id="search" class="view hidden"><div class="search-intro"><p class="eyebrow">PRIVATE CORPUS</p><h2>Find the signal.</h2><p class="muted">Search the archived research repository without downloading it to your phone.</p></div><form id="search-form" class="search-box"><span>⌕</span><input id="search-query" type="search" placeholder="Try: rosin press temperature control" minlength="2" maxlength="100" required><button class="primary" type="submit">Search</button></form><div class="search-hint">Searches the private GitHub corpus · Results link to their source files</div><div id="search-status" class="search-status"></div><div id="search-results" class="search-results"></div></section>
-</main><footer><span>VYBN CANNABIS RESEARCH</span><span id="footer-updated">PRIVATE PORTAL</span></footer></div><script src="./app.js"></script><script>if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script></body></html>
+</main><footer><span>VYBN CANNABIS RESEARCH</span><span id="footer-updated">PRIVATE PORTAL</span></footer>
+</div>
+<script src="./app.js"></script><script>if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
+</body></html>
