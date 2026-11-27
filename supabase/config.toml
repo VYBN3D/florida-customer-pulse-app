@@ -1,0 +1,7 @@
+project_id = "florida-customer-pulse"
+
+[functions.archive-read]
+verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false

@@ -1,57 +1,80 @@
-const PRIVATE_REPO = "VYBN3D/curaleaf-customer-pulse";
-const API = "https://api.github.com/repos/" + PRIVATE_REPO;
+const SUPABASE_URL = window.FCP_CONFIG?.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = window.FCP_CONFIG?.SUPABASE_ANON_KEY || "";
+const authReady = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase?.createClient);
+const supabase = authReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+}) : null;
 let sessionToken = null;
+let currentUser = null;
+let currentRole = "standard";
+let awaitingInvitePassword = false;
+let activeSessionUserId = null;
 let installPrompt = null;
 let indexManifest = null;
 const tableCache = new Map();
 const PAGE_SIZE = 50;
 const state = { community: { rows: [], filtered: [], page: 0, loaded: false }, products: { rows: [], filtered: [], page: 0, loaded: false, dataset: "menu_items" }, market: { rows: [], filtered: [], page: 0, loaded: false } };
 const $ = id => document.getElementById(id);
-function setConnection(connected, label) { const pill=$("connection-pill"); pill.className="pill "+(connected?"online":"offline"); pill.innerHTML="<i></i> "+(label||(connected?"PRIVATE DATA CONNECTED":"PRIVATE DATA NOT CONNECTED")); }
+function setConnection(connected, label) { const pill=$("connection-pill"); pill.className="pill "+(connected?"online":"offline"); pill.innerHTML="<i></i> "+(label||(connected?"ACCOUNT CONNECTED":"SIGNED OUT")); }
 function showTab(name) { document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===name)); document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active-panel",p.id===name)); if(sessionToken){ if(name==="community") loadCommunity(); if(name==="products") loadProducts(); if(name==="market") loadMarket(); } }
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.go)));
-const dialog=$("connect-dialog");
-function openConnect(){ $("connect-error").textContent=""; dialog.showModal(); }
-$("connect-open").addEventListener("click",()=>sessionToken?disconnect():openConnect());
-$("connect-notice").addEventListener("click",openConnect);
-document.querySelectorAll("[data-connect]").forEach(b=>b.addEventListener("click",openConnect));
-function cancelConnect(){sessionToken=null;$("github-token").value="";$("connect-error").textContent="";dialog.close();}
-dialog.addEventListener("cancel",event=>{event.preventDefault();cancelConnect();});
-$("cancel-connect").addEventListener("click",cancelConnect);
-dialog.addEventListener("close",()=>{if(!sessionToken)$("github-token").value="";});
-$("github-token").addEventListener("keydown",e=>{if(e.key==="Enter")connectPrivateRepo();});
-$("connect-submit").addEventListener("click",connectPrivateRepo);
-function authHeaders(){return {"Accept":"application/vnd.github+json","Authorization":"Bearer "+sessionToken,"X-GitHub-Api-Version":"2022-11-28"};}
-async function githubGet(path){
- const response=await fetch(API+"/contents/"+path,{headers:authHeaders(),cache:"no-store"});
- if(!response.ok){if(response.status===401)throw new Error("GitHub rejected this token. Check that it is active and copied correctly.");if(response.status===404)throw new Error("Private file not found or this token lacks Contents: Read-only access.");if(response.status===403)throw new Error("GitHub denied access or the API rate limit was reached. Check token permissions.");throw new Error("GitHub returned HTTP "+response.status+".");}
- return response.json();
+function authError(message){$("auth-error").textContent=message||"";}
+function showLogin(message=""){activeSessionUserId=null;awaitingInvitePassword=false;$("login-form").hidden=false;$("set-password-form").hidden=true;$("auth-screen").hidden=false;$("app-content").hidden=true;$("admin-open").hidden=true;$("signout-button").hidden=true;setConnection(false,"SIGNED OUT");authError(message);}
+function showDashboard(){$("auth-screen").hidden=true;$("app-content").hidden=false;$("signout-button").hidden=false;$("admin-open").hidden=currentRole!=="admin";setConnection(true,currentRole==="admin"?"ADMIN ACCOUNT":"STANDARD ACCOUNT");}
+async function invokeFunction(name,body){
+ const {data:{session}}=await supabase.auth.getSession();
+ if(!session?.access_token)throw new Error("Your session has expired. Please sign in again.");
+ const response=await fetch(SUPABASE_URL+"/functions/v1/"+name,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+session.access_token},body:JSON.stringify(body)});
+ const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"Secure service request failed ("+response.status+").");return result;
+}
+async function startAuthenticatedSession(session){
+ if(!session){sessionToken=null;currentUser=null;currentRole="standard";activeSessionUserId=null;indexManifest=null;tableCache.clear();showLogin();return;}
+ sessionToken=session.access_token;currentUser=session.user;
+ const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type")==="invite";
+ if(inviteFlow){history.replaceState(null,"",location.pathname+location.search);awaitingInvitePassword=true;}
+ if(awaitingInvitePassword){$("login-form").hidden=true;$("set-password-form").hidden=false;$("auth-screen").hidden=false;$("app-content").hidden=true;return;}
+ if(activeSessionUserId===session.user.id && !$("app-content").hidden)return;
+ activeSessionUserId=session.user.id;
+ const {data:profile,error}=await supabase.from("user_profiles").select("role,email").eq("user_id",session.user.id).single();
+ if(error||!profile){await supabase.auth.signOut();showLogin("Your account profile is not ready. Contact the dashboard administrator.");return;}
+ currentRole=profile.role==="admin"?"admin":"standard";showDashboard();
+ try{await loadPrivateCatalog();await loadCommunity();}
+ catch(e){$("last-refresh").textContent="Private archive unavailable";$("community-results").innerHTML="<div class=\"empty-results\">Signed in successfully, but the private archive could not load: "+escapeHTML(e.message)+"</div>";}
+}
+$("login-form").addEventListener("submit",async event=>{
+ event.preventDefault();authError("");const button=$("login-submit");button.disabled=true;button.textContent="Signing in…";
+ try{if(!authReady)throw new Error("Authentication is not configured yet. The dashboard administrator must finish the secure service setup.");const {data,error}=await supabase.auth.signInWithPassword({email:$("login-email").value.trim(),password:$("login-password").value});if(error)throw error;await startAuthenticatedSession(data.session);}
+ catch(e){authError(e.message||"Could not sign in.");}finally{button.disabled=false;button.textContent="Sign in";}
+});
+$("set-password-form").addEventListener("submit",async event=>{event.preventDefault();authError("");try{const password=$("new-password").value;if(password.length<12)throw new Error("Use at least 12 characters.");const {error}=await supabase.auth.updateUser({password});if(error)throw error;$("set-password-form").hidden=true;awaitingInvitePassword=false;activeSessionUserId=null;await startAuthenticatedSession((await supabase.auth.getSession()).data.session);}catch(e){authError(e.message||"Could not set password.");}});
+$("signout-button").addEventListener("click",async()=>{await supabase?.auth.signOut();});
+supabase?.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>startAuthenticatedSession(session),0);});
+if(!authReady){showLogin("Secure sign-in is being configured. Please check back after the administrator completes setup.");}
+else{supabase.auth.getSession().then(({data})=>{if(data.session)startAuthenticatedSession(data.session);else showLogin();});}
+
+const adminDialog=$("admin-dialog");
+$("admin-open").addEventListener("click",()=>{if(currentRole!=="admin")return;adminDialog.showModal();loadAdminUsers();});
+$("admin-close").addEventListener("click",()=>adminDialog.close());
+$("users-refresh").addEventListener("click",loadAdminUsers);
+$("invite-form").addEventListener("submit",async event=>{event.preventDefault();const email=$("invite-email").value.trim();const msg=$("admin-message");msg.textContent="Sending invitation…";try{await invokeFunction("admin-users",{action:"invite",email});msg.textContent="Invitation sent to "+email+".";$("invite-email").value="";await loadAdminUsers();}catch(e){msg.textContent=e.message;}});
+async function loadAdminUsers(){if(currentRole!=="admin")return;const target=$("admin-users");target.textContent="Loading accounts…";try{const result=await invokeFunction("admin-users",{action:"list"});target.replaceChildren();result.users.forEach(user=>{
+ const row=document.createElement("div");row.className="admin-user-row";const info=document.createElement("div");const email=document.createElement("strong");email.textContent=user.email||"Pending invitation";const meta=document.createElement("small");meta.textContent=(user.role||"standard").toUpperCase()+" · "+(user.last_sign_in_at?"Last sign-in "+new Date(user.last_sign_in_at).toLocaleDateString():"Not signed in yet");info.append(email,meta);row.append(info);
+ if(user.id!==currentUser?.id){const role=document.createElement("select");role.setAttribute("aria-label","Role for "+user.email);["standard","admin"].forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="admin"?"Administrator":"Standard user";role.append(o);});role.value=user.role||"standard";role.addEventListener("change",async()=>{try{await invokeFunction("admin-users",{action:"role",userId:user.id,role:role.value});$("admin-message").textContent="Account role updated.";}catch(e){$("admin-message").textContent=e.message;loadAdminUsers();}});row.append(role);
+ const status=document.createElement("button");status.className="button button-outline";status.textContent=user.banned_until?"Restore":"Suspend";status.addEventListener("click",async()=>{try{await invokeFunction("admin-users",{action:user.banned_until?"restore":"suspend",userId:user.id});$("admin-message").textContent="Account status updated.";loadAdminUsers();}catch(e){$("admin-message").textContent=e.message;}});row.append(status);}
+ target.append(row);
+ });if(!result.users.length)target.textContent="No accounts yet.";
+ }catch(e){target.textContent=e.message;}}
+
+async function loadPrivateCatalog(){
+ const [catalogFile,indexFile]=await Promise.all([githubGet("archive/catalog.json"),githubGet("archive/app-index/manifest.json")]);
+ const catalog=JSON.parse(decodeContent(catalogFile));indexManifest=JSON.parse(decodeContent(indexFile));const tables=catalog.tables||{};
+ $("metric-mentions").textContent=(tables.mentions??0).toLocaleString();$("metric-products").textContent=(tables.menu_items??0).toLocaleString();$("metric-stores").textContent=(tables.menu_stores??0).toLocaleString();$("metric-market").textContent=(tables.ommu_market??0).toLocaleString();
+ $("last-refresh").textContent="Private archive · "+new Date(indexManifest.generated_at).toLocaleString();
 }
 function decodeContent(file){const decoded=atob(file.content.replace(/\s/g,""));const bytes=Uint8Array.from(decoded,c=>c.charCodeAt(0));return new TextDecoder().decode(bytes);}
-async function loadIndexTable(table){
- if(tableCache.has(table))return tableCache.get(table);
- if(!indexManifest)throw new Error("The private index has not been loaded.");
- const spec=indexManifest.tables?.[table];if(!spec)throw new Error("The private archive does not contain the "+table+" index.");
- const shards=await Promise.all(spec.shards.map(async shard=>JSON.parse(decodeContent(await githubGet("archive/app-index/"+shard.file)))));
- const rows=shards.flat();tableCache.set(table,rows);return rows;
-}
-async function connectPrivateRepo(){
- const token=$("github-token").value.trim();if(!token){$("connect-error").textContent="Paste a fine-grained GitHub token to continue.";return;}
- const button=$("connect-submit");button.disabled=true;button.textContent="Connecting…";$("connect-error").textContent="";sessionToken=token;
- try{
-  const repo=await fetch(API,{headers:authHeaders(),cache:"no-store"});if(!repo.ok)throw new Error(repo.status===404?"This GitHub account cannot access the private data repository.":"GitHub repository check failed (HTTP "+repo.status+").");
-  const [catalogFile,indexFile]=await Promise.all([githubGet("archive/catalog.json"),githubGet("archive/app-index/manifest.json")]);
-  const catalog=JSON.parse(decodeContent(catalogFile));indexManifest=JSON.parse(decodeContent(indexFile));const tables=catalog.tables||{};
-  $("metric-mentions").textContent=(tables.mentions??0).toLocaleString();$("metric-products").textContent=(tables.menu_items??0).toLocaleString();$("metric-stores").textContent=(tables.menu_stores??0).toLocaleString();$("metric-market").textContent=(tables.ommu_market??0).toLocaleString();
-  $("last-refresh").textContent="Private archive connected · "+new Date(indexManifest.generated_at).toLocaleString();$("connection-notice").hidden=true;setConnection(true,"PRIVATE DATA CONNECTED");$("connect-open").textContent="Disconnect data";$("github-token").value="";dialog.close();
-  await loadCommunity();
- }catch(error){sessionToken=null;indexManifest=null;tableCache.clear();$("connect-error").textContent=error.message||"Could not connect to the private archive.";}
- finally{button.disabled=false;button.textContent="Connect private archive";}
-}
-function disconnect(){sessionToken=null;indexManifest=null;tableCache.clear();Object.values(state).forEach(s=>{s.loaded=false;s.rows=[];s.filtered=[];s.page=0;});["metric-mentions","metric-products","metric-stores","metric-market"].forEach(id=>$(id).textContent="--");$("last-refresh").textContent="Waiting for private archive";$("connection-notice").hidden=false;setConnection(false);$("connect-open").textContent="Connect private data";["community-results","products-results","market-results"].forEach(id=>$(id).innerHTML='<div class="loading-state">Connect your private archive to browse records.</div>');["community-count","products-count","market-count"].forEach(id=>$(id).textContent="Connect to load records");}
-function clearSession(){if(sessionToken)disconnect();}
-window.addEventListener("pagehide",clearSession);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")clearSession();});
+async function githubGet(path){return invokeFunction("archive-read",{path});}
+async function loadIndexTable(table){if(tableCache.has(table))return tableCache.get(table);if(!indexManifest)throw new Error("The private index has not been loaded.");const spec=indexManifest.tables?.[table];if(!spec)throw new Error("The private archive does not contain the "+table+" index.");const shards=await Promise.all(spec.shards.map(async shard=>JSON.parse(decodeContent(await githubGet("archive/app-index/"+shard.file)))));const rows=shards.flat();tableCache.set(table,rows);return rows;}
 function text(v){return v===null||v===undefined||v===""?"":String(v);}
 function escapeHTML(v){return text(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function formatDate(v){if(!v)return "Date not supplied";const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});}
