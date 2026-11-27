@@ -63,3 +63,38 @@
 .section-reorder-corner{position:absolute;top:14px;right:14px}
 .dashboard-layout>.surface{position:relative}
 @media(max-width:600px){.section-move-button{width:32px;height:32px;border-radius:9px}.dashboard-section-heading{gap:8px}}
+
+/* Florida Customer Pulse · operations tools */
+.tools-intro{margin:7px 0 0;color:#718076;font-size:13px;line-height:1.5}
+.tools-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.tool-card{padding:22px;min-width:0}
+.tool-card-wide{grid-column:1/-1}
+.tool-card-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.tool-index{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#eaf2e9;color:#286142;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.tool-card-head .eyebrow{margin:0 0 3px}.tool-card-head h3{font-size:19px;margin:0;color:#173d2a;letter-spacing:-.025em}
+.tool-description{font-size:12px;line-height:1.6;color:#65766a;min-height:58px;margin:0 0 16px}
+.tool-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tool-fields-two{max-width:650px}
+.tool-fields label{display:grid;gap:6px;color:#53665a;font-size:10px;font-weight:800;letter-spacing:.03em}
+.tool-fields input{width:100%;min-width:0;padding:11px 12px;border:1px solid #d6dfd6;border-radius:9px;background:#fff;color:#20372a;font:600 14px inherit;font-size:14px;font-variant-numeric:tabular-nums;outline-color:#4e8b64}
+.tool-results{display:grid;gap:0;margin-top:16px;padding:4px 14px;background:#f5f8f3;border:1px solid #e4ebe2;border-radius:11px}
+.tool-results>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #e5ece3}
+.tool-results>div:last-child{border-bottom:0}
+.tool-results span{font-size:11px;color:#65766a}
+.tool-results strong{font-size:13px;color:#214d34;text-align:right;font-variant-numeric:tabular-nums}
+.tool-results-wide{max-width:760px}
+.tool-footnote{margin:12px 0 0;font-size:10px;line-height:1.55;color:#829087}
+.tool-error{font-size:12px;color:#a34737;padding:10px 0;margin:0}
+.section-breakdown{margin-top:14px}
+.section-summary{font-size:11px;color:#53665a;margin:0 0 9px}
+.section-chips{display:flex;flex-wrap:wrap;gap:9px}
+.section-chip{display:flex;align-items:center;gap:10px;padding:10px 13px;border:1px solid #dce7d9;border-radius:10px;background:#f8faf6}
+.section-chip strong{font-size:20px;color:#245a39;font-variant-numeric:tabular-nums}
+.section-chip span{font-size:10px;color:#64766a}
+@media(max-width:760px){.tools-grid{grid-template-columns:1fr}.tool-card-wide{grid-column:1}.tool-card{padding:17px}.tool-description{min-height:0}.tool-results strong{max-width:62%;font-size:12px}}
+@media(max-width:390px){.tool-fields{gap:9px}.tool-fields input{padding:10px 8px;font-size:16px}.tool-results{padding:4px 10px}}
+/* Phone-first form sizing */
+.tool-fields{min-width:0}
+.tool-fields label{min-width:0}
+.tool-fields input{min-height:46px;font-size:16px;touch-action:manipulation}
+@media(max-width:520px){.tool-fields,.tool-fields-two{grid-template-columns:minmax(0,1fr);max-width:none}.tool-card{padding:16px}.tool-results>div{align-items:flex-start;flex-direction:column;gap:5px}.tool-results strong{max-width:100%;text-align:left}.tabs{scrollbar-width:thin;overscroll-behavior-x:contain}.tab{min-height:46px;padding:13px 15px}}
