@@ -37,25 +37,26 @@ function initDashboardLayout(){
  const features=overview.querySelector(".content-grid");if(features){[...features.children].forEach(node=>nodes.push(node));features.remove();}
  nodes.forEach((node,index)=>{
   node.dataset.dashboardSection="section-"+(index+1);
-  const heading=node.querySelector("h2,h3"),handle=document.createElement("span");
-  handle.className="section-drag-handle";handle.textContent="⠿";handle.title="Drag to rearrange this dashboard section";handle.setAttribute("role","img");handle.setAttribute("aria-label","Drag to rearrange section: "+(heading?.textContent||"Dashboard section"));handle.draggable=true;
-  handle.addEventListener("pointerdown",event=>{if(event.pointerType==="mouse")return;event.preventDefault();draggedDashboardSection=node;node.classList.add("is-dragging");});
-  handle.addEventListener("pointermove",event=>{if(!draggedDashboardSection||event.pointerType==="mouse")return;const under=document.elementFromPoint(event.clientX,event.clientY),target=under?.closest("#dashboard-layout>[data-dashboard-section]");if(!target||target===draggedDashboardSection)return;const rect=target.getBoundingClientRect(),after=event.clientY>rect.top+rect.height/2;layout.insertBefore(draggedDashboardSection,after?target.nextSibling:target);});
-  const finishPointerDrag=event=>{if(event.pointerType==="mouse"||draggedDashboardSection!==node)return;node.classList.remove("is-dragging");draggedDashboardSection=null;saveDashboardOrder(layout);};
-  handle.addEventListener("pointerup",finishPointerDrag);handle.addEventListener("pointercancel",finishPointerDrag);
-  handle.addEventListener("dragstart",event=>{draggedDashboardSection=node;node.classList.add("is-dragging");event.dataTransfer.effectAllowed="move";event.dataTransfer.setData("text/plain",node.dataset.dashboardSection);});
-  handle.addEventListener("dragend",()=>{node.classList.remove("is-dragging");document.querySelectorAll(".dashboard-layout>.drag-over").forEach(item=>item.classList.remove("drag-over"));draggedDashboardSection=null;});
+  const heading=node.querySelector("h2,h3"),controls=document.createElement("div");
+  controls.className="section-reorder";
+  const makeButton=(direction,label,symbol)=>{const button=document.createElement("button");button.type="button";button.className="section-move-button";button.textContent=symbol;button.title=label;button.setAttribute("aria-label",label+": "+(heading?.textContent||"Dashboard section"));button.addEventListener("click",()=>moveDashboardSection(node,direction,layout));return button;};
+  controls.append(makeButton(-1,"Move section up","↑"),makeButton(1,"Move section down","↓"));
   const header=node.querySelector(".section-heading,.insight-heading");
-  if(header)header.append(handle);else node.insertBefore(handle,node.firstChild);
-  node.addEventListener("dragover",event=>{if(!draggedDashboardSection||draggedDashboardSection===node)return;event.preventDefault();event.dataTransfer.dropEffect="move";node.classList.add("drag-over");});
-  node.addEventListener("dragleave",event=>{if(!node.contains(event.relatedTarget))node.classList.remove("drag-over");});
-  node.addEventListener("drop",event=>{event.preventDefault();node.classList.remove("drag-over");if(!draggedDashboardSection||draggedDashboardSection===node)return;const rect=node.getBoundingClientRect(),after=event.clientY>rect.top+rect.height/2;layout.insertBefore(draggedDashboardSection,after?node.nextSibling:node);saveDashboardOrder(layout);});
+  if(header){header.append(controls);header.classList.add("dashboard-section-heading");}else{controls.classList.add("section-reorder-corner");node.append(controls);}
   layout.append(node);
  });
  const metric=overview.querySelector(".metric-grid");metric?.after(layout);
  try{const saved=JSON.parse(localStorage.getItem("fcp-overview-order")||"[]");saved.forEach(key=>{const item=[...layout.children].find(n=>n.dataset.dashboardSection===key);if(item)layout.append(item);});}catch{}
+ updateDashboardMoveButtons(layout);
 }
-let draggedDashboardSection=null;
+function moveDashboardSection(node,direction,layout){
+ const sibling=direction<0?node.previousElementSibling:node.nextElementSibling;if(!sibling)return;
+ if(direction<0)layout.insertBefore(node,sibling);else layout.insertBefore(sibling,node);
+ saveDashboardOrder(layout);updateDashboardMoveButtons(layout);
+}
+function updateDashboardMoveButtons(layout){
+ [...layout.children].forEach((node,index)=>{const buttons=node.querySelectorAll(".section-move-button");if(buttons.length===2){buttons[0].disabled=index===0;buttons[1].disabled=index===layout.children.length-1;}});
+}
 function saveDashboardOrder(layout){try{localStorage.setItem("fcp-overview-order",JSON.stringify([...layout.children].map(n=>n.dataset.dashboardSection)));}catch{}}
 
 initDashboardLayout();
