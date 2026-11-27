@@ -1,5 +1,5 @@
-const CACHE="florida-customer-pulse-v6";
-const FILES=["./","./index.html","./styles.css","./app.js?v=3ad0050","./config.js","./manifest.webmanifest","./assets/icon.svg","./assets/icon-192.png","./assets/icon-512.png"];
+const CACHE="florida-customer-pulse-v10";
+const FILES=["./","./index.html","./styles.css","./app.js?v=live-pipeline-4","./config.js","./manifest.webmanifest","./assets/icon.svg","./assets/icon-192.png","./assets/icon-512.png"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",event=>{
