@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#123d2b"><meta name="description" content="Florida Customer Pulse, an installable cannabis market and customer-feedback dashboard.">
+<meta name="theme-color" content="#123d2b"><meta name="referrer" content="no-referrer"><meta name="description" content="Florida Customer Pulse, an installable cannabis market and customer-feedback dashboard.">
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./assets/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css"><title>Florida Customer Pulse</title></head>
 <body>
 <header class="topbar"><a class="brand" href="./"><img src="./assets/icon.svg" alt="" width="38" height="38"><span><strong>FLORIDA</strong><small>CUSTOMER PULSE</small></span></a><div class="top-actions"><span id="connection-pill" class="pill offline"><i></i> PRIVATE DATA NOT CONNECTED</span><button id="admin-open" class="button button-light" hidden>Manage users</button><button id="signout-button" class="button button-light" hidden>Sign out</button><button id="install-button" class="button button-light" hidden>Install app</button></div></header>
@@ -20,7 +20,11 @@
       <button class="button button-primary auth-submit" id="login-submit" type="submit">Sign in</button>
     </form>
     <div id="auth-error" class="error" role="alert"></div>
-    <p class="auth-footnote">Accounts are created only through administrator email invitations.</p>
+    <p class="auth-footnote">Accounts are created only through administrator-generated invitations.</p>
+    <div id="accept-invite-panel" hidden>
+      <p class="auth-intro">Your invitation is ready. Accept it to verify your account and create your password.</p>
+      <button class="button button-primary auth-submit" id="accept-invite-button" type="button">Accept invitation</button>
+    </div>
     <form id="set-password-form" hidden>
       <label for="new-password">Create your password</label>
       <input id="new-password" type="password" minlength="12" autocomplete="new-password" required placeholder="At least 12 characters">
@@ -47,6 +51,6 @@
 </div>
 </main>
 <footer><span>FLORIDA CUSTOMER PULSE</span><span>Independent research interface · Data remains private</span></footer>
-<dialog id="admin-dialog" class="admin-dialog"><div class="record-dialog-head"><div><p class="eyebrow">ACCESS CONTROL</p><h2>Manage dashboard users</h2></div><button class="close-button" id="admin-close" aria-label="Close">×</button></div><div class="dialog-body"><form id="invite-form"><label for="invite-email">Invite by email</label><div class="invite-row"><input id="invite-email" type="email" required placeholder="person@example.com"><button class="button button-primary" type="submit">Send invite</button></div></form><div id="admin-message" class="admin-message" role="status"></div><div class="admin-users-heading"><strong>Authorized accounts</strong><button class="text-button" id="users-refresh" type="button">Refresh</button></div><div id="admin-users" class="admin-users"><p class="muted">Loading accounts…</p></div></div></dialog>
+<dialog id="admin-dialog" class="admin-dialog"><div class="record-dialog-head"><div><p class="eyebrow">ACCESS CONTROL</p><h2>Manage dashboard users</h2></div><button class="close-button" id="admin-close" aria-label="Close">×</button></div><div class="dialog-body"><form id="invite-form"><label for="invite-email">Invite by email</label><div class="invite-row"><input id="invite-email" type="email" required placeholder="person@example.com"><button class="button button-primary" type="submit">Generate invite link</button></div></form><div id="admin-message" class="admin-message" role="status"></div><div class="admin-users-heading"><strong>Authorized accounts</strong><button class="text-button" id="users-refresh" type="button">Refresh</button></div><div id="admin-users" class="admin-users"><p class="muted">Loading accounts…</p></div></div></dialog>
 <dialog id="record-dialog" class="record-dialog"><div class="record-dialog-head"><div><p class="eyebrow" id="record-kicker">ARCHIVE RECORD</p><h2 id="record-title">Record details</h2></div><button class="close-button" id="record-close" aria-label="Close">×</button></div><div id="record-detail" class="record-detail"></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script><script src="./config.js"></script><script src="./app.js" defer></script></body></html>

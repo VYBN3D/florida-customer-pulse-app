@@ -1,22 +1,18 @@
-const inviteLinkDetected = (() => {
-  const query = new URLSearchParams(window.location.search);
-  const hash = new URLSearchParams(window.location.hash.slice(1));
-  // Supabase may return either an implicit-flow invite marker or a PKCE code.
-  // This app only uses email invitations for account creation, so a callback
-  // carrying a PKCE code is treated as an invitation before Supabase consumes it.
-  return query.get("flow") === "invite" || query.get("type") === "invite" ||
-    hash.get("type") === "invite" || query.has("code");
-})();
+const inviteQuery = new URLSearchParams(window.location.search);
+const inviteHash = new URLSearchParams(window.location.hash.slice(1));
+const inviteTokenHash = inviteQuery.get("token_hash") || inviteHash.get("token_hash");
+const inviteType = inviteQuery.get("type") || inviteHash.get("type");
 const SUPABASE_URL = window.FCP_CONFIG?.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = window.FCP_CONFIG?.SUPABASE_ANON_KEY || "";
 const authReady = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase?.createClient);
 const supabase = authReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
 }) : null;
 let sessionToken = null;
 let currentUser = null;
 let currentRole = "standard";
 let awaitingInvitePassword = false;
+let inviteVerificationInProgress = Boolean(inviteTokenHash);
 let activeSessionUserId = null;
 let installPrompt = null;
 let indexManifest = null;
@@ -38,9 +34,9 @@ async function invokeFunction(name,body){
  const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"Secure service request failed ("+response.status+").");return result;
 }
 async function startAuthenticatedSession(session){
+ if(inviteTokenHash && inviteVerificationInProgress)return;
  if(!session){sessionToken=null;currentUser=null;currentRole="standard";activeSessionUserId=null;indexManifest=null;tableCache.clear();showLogin();return;}
  sessionToken=session.access_token;currentUser=session.user;
- if(inviteLinkDetected){history.replaceState(null,"",location.pathname);awaitingInvitePassword=true;}
  if(awaitingInvitePassword){$("login-form").hidden=true;$("set-password-form").hidden=false;$("auth-screen").hidden=false;$("app-content").hidden=true;return;}
  if(activeSessionUserId===session.user.id && !$("app-content").hidden)return;
  activeSessionUserId=session.user.id;
@@ -58,14 +54,37 @@ $("login-form").addEventListener("submit",async event=>{
 $("set-password-form").addEventListener("submit",async event=>{event.preventDefault();authError("");try{const password=$("new-password").value;if(password.length<12)throw new Error("Use at least 12 characters.");const {error}=await supabase.auth.updateUser({password});if(error)throw error;$("set-password-form").hidden=true;awaitingInvitePassword=false;activeSessionUserId=null;await startAuthenticatedSession((await supabase.auth.getSession()).data.session);}catch(e){authError(e.message||"Could not set password.");}});
 $("signout-button").addEventListener("click",async()=>{await supabase?.auth.signOut();});
 supabase?.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>startAuthenticatedSession(session),0);});
-if(!authReady){showLogin("Secure sign-in is being configured. Please check back after the administrator completes setup.");}
-else{supabase.auth.getSession().then(({data})=>{if(data.session)startAuthenticatedSession(data.session);else showLogin();});}
+async function acceptInviteFromTokenHash(){
+ if(!inviteTokenHash || inviteType!=="invite")return;
+ const button=$("accept-invite-button");button.disabled=true;button.textContent="Verifying invitation…";authError("");
+ try{
+  const {data,error}=await supabase.auth.verifyOtp({token_hash:inviteTokenHash,type:"invite"});
+  if(error)throw error;
+  history.replaceState(null,"",location.pathname);
+  inviteVerificationInProgress=false;
+  awaitingInvitePassword=true;
+  $("accept-invite-panel").hidden=true;
+  await startAuthenticatedSession(data.session);
+ }catch(e){
+  inviteVerificationInProgress=false;
+  history.replaceState(null,"",location.pathname);
+  $("accept-invite-panel").hidden=true;
+  showLogin("Could not verify this invitation. It may have expired or already been used. Ask the administrator to generate a fresh link.");
+ }
+}
+$("accept-invite-button").addEventListener("click",acceptInviteFromTokenHash);
+if(!authReady){inviteVerificationInProgress=false;showLogin("Secure sign-in is being configured. Please check back after the administrator completes setup.");}
+else if(inviteTokenHash){
+ if(inviteType==="invite"){
+  $("login-form").hidden=true;$("set-password-form").hidden=true;$("accept-invite-panel").hidden=false;$("auth-screen").hidden=false;$("app-content").hidden=true;
+ }else{inviteVerificationInProgress=false;showLogin("This invitation link is incomplete. Ask the administrator to generate a fresh link.");}
+}else{supabase.auth.getSession().then(({data})=>{if(data.session)startAuthenticatedSession(data.session);else showLogin();});}
 
 const adminDialog=$("admin-dialog");
 $("admin-open").addEventListener("click",()=>{if(currentRole!=="admin")return;adminDialog.showModal();loadAdminUsers();});
 $("admin-close").addEventListener("click",()=>adminDialog.close());
 $("users-refresh").addEventListener("click",loadAdminUsers);
-$("invite-form").addEventListener("submit",async event=>{event.preventDefault();const email=$("invite-email").value.trim();const msg=$("admin-message");msg.textContent="Sending invitation…";try{await invokeFunction("admin-users",{action:"invite",email});msg.textContent="Invitation sent to "+email+".";$("invite-email").value="";await loadAdminUsers();}catch(e){msg.textContent=e.message;}});
+$("invite-form").addEventListener("submit",async event=>{event.preventDefault();const email=$("invite-email").value.trim();const msg=$("admin-message");msg.textContent="Generating secure invitation link…";try{const result=await invokeFunction("admin-users",{action:"invite",email});msg.replaceChildren();const note=document.createElement("p");note.textContent="Invitation link created for "+email+". Copy it and send it directly to the recipient.";const link=document.createElement("input");link.type="text";link.readOnly=true;link.value=result.invitation_url;link.setAttribute("aria-label","Invitation link");link.className="invite-link-field";const copy=document.createElement("button");copy.type="button";copy.className="button button-primary";copy.textContent="Copy invitation link";copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(result.invitation_url);copy.textContent="Copied!";}catch(e){link.focus();link.select();msg.dataset.copyFallback="true";copy.textContent="Select and copy link";}});msg.append(note,link,copy);$("invite-email").value="";await loadAdminUsers();}catch(e){msg.textContent=e.message;}});
 async function loadAdminUsers(){if(currentRole!=="admin")return;const target=$("admin-users");target.textContent="Loading accounts…";try{const result=await invokeFunction("admin-users",{action:"list"});target.replaceChildren();result.users.forEach(user=>{
  const row=document.createElement("div");row.className="admin-user-row";const info=document.createElement("div");const email=document.createElement("strong");email.textContent=user.email||"Pending invitation";const meta=document.createElement("small");meta.textContent=(user.role||"standard").toUpperCase()+" · "+(user.last_sign_in_at?"Last sign-in "+new Date(user.last_sign_in_at).toLocaleDateString():"Not signed in yet");info.append(email,meta);row.append(info);
  if(user.id!==currentUser?.id){const role=document.createElement("select");role.setAttribute("aria-label","Role for "+user.email);["standard","admin"].forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="admin"?"Administrator":"Standard user";role.append(o);});role.value=user.role||"standard";role.addEventListener("change",async()=>{try{await invokeFunction("admin-users",{action:"role",userId:user.id,role:role.value});$("admin-message").textContent="Account role updated.";}catch(e){$("admin-message").textContent=e.message;loadAdminUsers();}});row.append(role);

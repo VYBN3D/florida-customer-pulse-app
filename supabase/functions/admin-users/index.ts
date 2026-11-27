@@ -13,12 +13,17 @@ Deno.serve(async (req: Request) => {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400);
       const appUrl = Deno.env.get("APP_URL");
       if (!appUrl || !appUrl.startsWith("https://")) return json({ error: "Secure app URL is not configured." }, 503);
-      const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: appUrl,
-        data: { invited_by: user.id },
+      const { data, error } = await admin.auth.admin.generateLink({
+        type: "invite",
+        email,
+        options: { redirectTo: appUrl, data: { invited_by: user.id } },
       });
       if (error) return json({ error: error.message }, 400);
-      return json({ ok: true, invited: data.user?.email });
+      const tokenHash = data.properties?.hashed_token;
+      if (!tokenHash) return json({ error: "Supabase did not return an invitation token." }, 502);
+      const invitationUrl = new URL(appUrl);
+      invitationUrl.hash = new URLSearchParams({ token_hash: tokenHash, type: "invite" }).toString();
+      return json({ ok: true, invited: data.user?.email || email, invitation_url: invitationUrl.toString() });
     }
 
     if (action === "list") {
