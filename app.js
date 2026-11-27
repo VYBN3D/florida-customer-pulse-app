@@ -1,7 +1,11 @@
 const inviteLinkDetected = (() => {
   const query = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.slice(1));
-  return query.get("type") === "invite" || hash.get("type") === "invite";
+  // Supabase may return either an implicit-flow invite marker or a PKCE code.
+  // This app only uses email invitations for account creation, so a callback
+  // carrying a PKCE code is treated as an invitation before Supabase consumes it.
+  return query.get("flow") === "invite" || query.get("type") === "invite" ||
+    hash.get("type") === "invite" || query.has("code");
 })();
 const SUPABASE_URL = window.FCP_CONFIG?.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = window.FCP_CONFIG?.SUPABASE_ANON_KEY || "";
