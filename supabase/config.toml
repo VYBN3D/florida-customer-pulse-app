@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.scraper-ingest]
 verify_jwt = false
+
+[functions.scraper-portal-control]
+verify_jwt = false

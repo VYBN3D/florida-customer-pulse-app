@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 export const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://vybn3d.github.io",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ingest-token",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Vary": "Origin",
 };
 
