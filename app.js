@@ -8,9 +8,12 @@ document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>show
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.go)));
 const dialog=$("connect-dialog");
 function openConnect(){ $("connect-error").textContent=""; dialog.showModal(); }
-$("connect-open").addEventListener("click",openConnect); $("connect-notice").addEventListener("click",openConnect);
+$("connect-open").addEventListener("click",()=>sessionToken?disconnect():openConnect());
+$("connect-notice").addEventListener("click",openConnect);
 document.querySelectorAll("[data-connect]").forEach(b=>b.addEventListener("click",openConnect));
-$("cancel-connect").addEventListener("click",()=>dialog.close());
+function cancelConnect(){sessionToken=null;$("github-token").value="";$("connect-error").textContent="";dialog.close();}
+$("cancel-connect").addEventListener("click",cancelConnect);
+dialog.addEventListener("close",()=>{if(!sessionToken)$("github-token").value="";});
 $("github-token").addEventListener("keydown",e=>{if(e.key==="Enter")connectPrivateRepo();});
 $("connect-submit").addEventListener("click",connectPrivateRepo);
 async function githubGet(path){
@@ -26,11 +29,11 @@ async function connectPrivateRepo(){
   if(!repo.ok)throw new Error(repo.status===404?"This GitHub account cannot access the private data repository.":"GitHub repository check failed (HTTP "+repo.status+").");
   const file=await githubGet("archive/catalog.json");const decoded=atob(file.content.replace(/\s/g,""));const bytes=Uint8Array.from(decoded,c=>c.charCodeAt(0));const catalog=JSON.parse(new TextDecoder().decode(bytes));const tables=catalog.tables||{};
   $("metric-mentions").textContent=(tables.mentions??0).toLocaleString();$("metric-products").textContent=(tables.menu_items??0).toLocaleString();$("metric-stores").textContent=(tables.menu_stores??0).toLocaleString();$("metric-market").textContent=(tables.ommu_market??0).toLocaleString();
-  $("last-refresh").textContent="Private archive catalog verified";$("connection-notice").hidden=true;setConnection(true,"PRIVATE DATA ACCESS VERIFIED");$("github-token").value="";dialog.close();$("connect-open").textContent="Disconnect data";$("connect-open").onclick=disconnect;
+  $("last-refresh").textContent="Private archive catalog verified";$("connection-notice").hidden=true;setConnection(true,"PRIVATE DATA ACCESS VERIFIED");$("github-token").value="";dialog.close();
  }catch(error){sessionToken=null;$("connect-error").textContent=error.message||"Could not connect to the private archive.";}
  finally{button.disabled=false;button.textContent="Verify private access";}
 }
-function disconnect(){sessionToken=null;["metric-mentions","metric-products","metric-stores","metric-market"].forEach(id=>$(id).textContent="--");$("last-refresh").textContent="Waiting for private archive";$("connection-notice").hidden=false;setConnection(false);$("connect-open").textContent="Connect private data";$("connect-open").onclick=openConnect;}
+function disconnect(){sessionToken=null;["metric-mentions","metric-products","metric-stores","metric-market"].forEach(id=>$(id).textContent="--");$("last-refresh").textContent="Waiting for private archive";$("connection-notice").hidden=false;setConnection(false);}
 function clearSession(){if(sessionToken)disconnect();}
 window.addEventListener("pagehide",clearSession);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")clearSession();});
 window.addEventListener("beforeinstallprompt",event=>{event.preventDefault();installPrompt=event;$("install-button").hidden=false;});
