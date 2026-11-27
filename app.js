@@ -14,6 +14,7 @@ let currentRole = "standard";
 let awaitingInvitePassword = false;
 let inviteVerificationInProgress = Boolean(inviteTokenHash);
 let activeSessionUserId = null;
+let loginInProgress = false;
 let installPrompt = null;
 let indexManifest = null;
 const tableCache = new Map();
@@ -47,13 +48,26 @@ async function startAuthenticatedSession(session){
  catch(e){$("last-refresh").textContent="Private archive unavailable";$("community-results").innerHTML="<div class=\"empty-results\">Signed in successfully, but the private archive could not load: "+escapeHTML(e.message)+"</div>";}
 }
 $("login-form").addEventListener("submit",async event=>{
- event.preventDefault();authError("");const button=$("login-submit");button.disabled=true;button.textContent="Signing in…";
- try{if(!authReady)throw new Error("Authentication is not configured yet. The dashboard administrator must finish the secure service setup.");const {data,error}=await supabase.auth.signInWithPassword({email:$("login-email").value.trim(),password:$("login-password").value});if(error)throw error;await startAuthenticatedSession(data.session);}
- catch(e){authError(e.message||"Could not sign in.");}finally{button.disabled=false;button.textContent="Sign in";}
+ event.preventDefault();authError("");loginInProgress=true;const button=$("login-submit");button.disabled=true;button.textContent="Signing in…";
+ try{
+  if(!authReady)throw new Error("Authentication is not configured yet. The dashboard administrator must finish the secure service setup.");
+  const {data,error}=await supabase.auth.signInWithPassword({email:$("login-email").value.trim(),password:$("login-password").value});
+  if(error)throw error;
+  await startAuthenticatedSession(data.session);
+ }catch(e){authError(e.message||"Could not sign in.");}
+ finally{loginInProgress=false;button.disabled=false;button.textContent="Sign in";}
 });
 $("set-password-form").addEventListener("submit",async event=>{event.preventDefault();authError("");try{const password=$("new-password").value;if(password.length<12)throw new Error("Use at least 12 characters.");const {error}=await supabase.auth.updateUser({password});if(error)throw error;$("set-password-form").hidden=true;awaitingInvitePassword=false;activeSessionUserId=null;await startAuthenticatedSession((await supabase.auth.getSession()).data.session);}catch(e){authError(e.message||"Could not set password.");}});
 $("signout-button").addEventListener("click",async()=>{await supabase?.auth.signOut();});
-supabase?.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>startAuthenticatedSession(session),0);});
+supabase?.auth.onAuthStateChange((event,session)=>{
+ // The initial empty session is handled by getSession() below. In particular,
+ // do not let it clear a login error or reset the form during password sign-in.
+ if(event==="INITIAL_SESSION")return;
+ if(event==="SIGNED_OUT" && loginInProgress)return;
+ if(event==="SIGNED_IN" || event==="TOKEN_REFRESHED" || event==="USER_UPDATED" || event==="SIGNED_OUT"){
+  setTimeout(()=>startAuthenticatedSession(session),0);
+ }
+});
 async function acceptInviteFromTokenHash(){
  if(!inviteTokenHash || inviteType!=="invite")return;
  const button=$("accept-invite-button");button.disabled=true;button.textContent="Verifying invitation…";authError("");
