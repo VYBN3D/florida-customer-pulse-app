@@ -1,3 +1,8 @@
+const inviteLinkDetected = (() => {
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  return query.get("type") === "invite" || hash.get("type") === "invite";
+})();
 const SUPABASE_URL = window.FCP_CONFIG?.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = window.FCP_CONFIG?.SUPABASE_ANON_KEY || "";
 const authReady = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase?.createClient);
@@ -31,8 +36,7 @@ async function invokeFunction(name,body){
 async function startAuthenticatedSession(session){
  if(!session){sessionToken=null;currentUser=null;currentRole="standard";activeSessionUserId=null;indexManifest=null;tableCache.clear();showLogin();return;}
  sessionToken=session.access_token;currentUser=session.user;
- const inviteFlow = new URLSearchParams(window.location.hash.slice(1)).get("type")==="invite";
- if(inviteFlow){history.replaceState(null,"",location.pathname+location.search);awaitingInvitePassword=true;}
+ if(inviteLinkDetected){history.replaceState(null,"",location.pathname);awaitingInvitePassword=true;}
  if(awaitingInvitePassword){$("login-form").hidden=true;$("set-password-form").hidden=false;$("auth-screen").hidden=false;$("app-content").hidden=true;return;}
  if(activeSessionUserId===session.user.id && !$("app-content").hidden)return;
  activeSessionUserId=session.user.id;
