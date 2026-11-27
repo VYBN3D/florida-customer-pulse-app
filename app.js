@@ -5,7 +5,7 @@ const inviteType = inviteQuery.get("type") || inviteHash.get("type");
 const SUPABASE_URL = window.FCP_CONFIG?.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = window.FCP_CONFIG?.SUPABASE_ANON_KEY || "";
 const authReady = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase?.createClient);
-const supabase = authReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+const supabaseClient = authReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
 }) : null;
 let sessionToken = null;
@@ -29,7 +29,7 @@ function authError(message){$("auth-error").textContent=message||"";}
 function showLogin(message=""){activeSessionUserId=null;awaitingInvitePassword=false;$("login-form").hidden=false;$("set-password-form").hidden=true;$("auth-screen").hidden=false;$("app-content").hidden=true;$("admin-open").hidden=true;$("signout-button").hidden=true;setConnection(false,"SIGNED OUT");authError(message);}
 function showDashboard(){$("auth-screen").hidden=true;$("app-content").hidden=false;$("signout-button").hidden=false;$("admin-open").hidden=currentRole!=="admin";setConnection(true,currentRole==="admin"?"ADMIN ACCOUNT":"STANDARD ACCOUNT");}
 async function invokeFunction(name,body){
- const {data:{session}}=await supabase.auth.getSession();
+ const {data:{session}}=await supabaseClient.auth.getSession();
  if(!session?.access_token)throw new Error("Your session has expired. Please sign in again.");
  const response=await fetch(SUPABASE_URL+"/functions/v1/"+name,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+session.access_token},body:JSON.stringify(body)});
  const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"Secure service request failed ("+response.status+").");return result;
@@ -41,8 +41,8 @@ async function startAuthenticatedSession(session){
  if(awaitingInvitePassword){$("login-form").hidden=true;$("set-password-form").hidden=false;$("auth-screen").hidden=false;$("app-content").hidden=true;return;}
  if(activeSessionUserId===session.user.id && !$("app-content").hidden)return;
  activeSessionUserId=session.user.id;
- const {data:profile,error}=await supabase.from("user_profiles").select("role,email").eq("user_id",session.user.id).single();
- if(error||!profile){await supabase.auth.signOut();showLogin("Your account profile is not ready. Contact the dashboard administrator.");return;}
+ const {data:profile,error}=await supabaseClient.from("user_profiles").select("role,email").eq("user_id",session.user.id).single();
+ if(error||!profile){await supabaseClient.auth.signOut();showLogin("Your account profile is not ready. Contact the dashboard administrator.");return;}
  currentRole=profile.role==="admin"?"admin":"standard";showDashboard();
  try{await loadPrivateCatalog();await loadCommunity();}
  catch(e){$("last-refresh").textContent="Private archive unavailable";$("community-results").innerHTML="<div class=\"empty-results\">Signed in successfully, but the private archive could not load: "+escapeHTML(e.message)+"</div>";}
@@ -51,15 +51,15 @@ $("login-form").addEventListener("submit",async event=>{
  event.preventDefault();authError("");loginInProgress=true;const button=$("login-submit");button.disabled=true;button.textContent="Signing in…";
  try{
   if(!authReady)throw new Error("Authentication is not configured yet. The dashboard administrator must finish the secure service setup.");
-  const {data,error}=await supabase.auth.signInWithPassword({email:$("login-email").value.trim(),password:$("login-password").value});
+  const {data,error}=await supabaseClient.auth.signInWithPassword({email:$("login-email").value.trim(),password:$("login-password").value});
   if(error)throw error;
   await startAuthenticatedSession(data.session);
  }catch(e){authError(e.message||"Could not sign in.");}
  finally{loginInProgress=false;button.disabled=false;button.textContent="Sign in";}
 });
-$("set-password-form").addEventListener("submit",async event=>{event.preventDefault();authError("");try{const password=$("new-password").value;if(password.length<12)throw new Error("Use at least 12 characters.");const {error}=await supabase.auth.updateUser({password});if(error)throw error;$("set-password-form").hidden=true;awaitingInvitePassword=false;activeSessionUserId=null;await startAuthenticatedSession((await supabase.auth.getSession()).data.session);}catch(e){authError(e.message||"Could not set password.");}});
-$("signout-button").addEventListener("click",async()=>{await supabase?.auth.signOut();});
-supabase?.auth.onAuthStateChange((event,session)=>{
+$("set-password-form").addEventListener("submit",async event=>{event.preventDefault();authError("");try{const password=$("new-password").value;if(password.length<12)throw new Error("Use at least 12 characters.");const {error}=await supabaseClient.auth.updateUser({password});if(error)throw error;$("set-password-form").hidden=true;awaitingInvitePassword=false;activeSessionUserId=null;await startAuthenticatedSession((await supabaseClient.auth.getSession()).data.session);}catch(e){authError(e.message||"Could not set password.");}});
+$("signout-button").addEventListener("click",async()=>{await supabaseClient?.auth.signOut();});
+supabaseClient?.auth.onAuthStateChange((event,session)=>{
  // The initial empty session is handled by getSession() below. In particular,
  // do not let it clear a login error or reset the form during password sign-in.
  if(event==="INITIAL_SESSION")return;
@@ -72,7 +72,7 @@ async function acceptInviteFromTokenHash(){
  if(!inviteTokenHash || inviteType!=="invite")return;
  const button=$("accept-invite-button");button.disabled=true;button.textContent="Verifying invitation…";authError("");
  try{
-  const {data,error}=await supabase.auth.verifyOtp({token_hash:inviteTokenHash,type:"invite"});
+  const {data,error}=await supabaseClient.auth.verifyOtp({token_hash:inviteTokenHash,type:"invite"});
   if(error)throw error;
   history.replaceState(null,"",location.pathname);
   inviteVerificationInProgress=false;
@@ -92,7 +92,7 @@ else if(inviteTokenHash){
  if(inviteType==="invite"){
   $("login-form").hidden=true;$("set-password-form").hidden=true;$("accept-invite-panel").hidden=false;$("auth-screen").hidden=false;$("app-content").hidden=true;
  }else{inviteVerificationInProgress=false;showLogin("This invitation link is incomplete. Ask the administrator to generate a fresh link.");}
-}else{supabase.auth.getSession().then(({data})=>{if(data.session)startAuthenticatedSession(data.session);else showLogin();});}
+}else{supabaseClient.auth.getSession().then(({data})=>{if(data.session)startAuthenticatedSession(data.session);else showLogin();});}
 
 const adminDialog=$("admin-dialog");
 $("admin-open").addEventListener("click",()=>{if(currentRole!=="admin")return;adminDialog.showModal();loadAdminUsers();});
