@@ -16,7 +16,7 @@ export function json(body: unknown, status = 200) {
 
 export function clients() {
   const url = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const serviceKey = Deno.env.get("SERVICE_ROLE_KEY")!;
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   return { admin };
 }
@@ -32,8 +32,22 @@ export async function requireUser(req: Request) {
 
 export async function requireAdmin(req: Request) {
   const result = await requireUser(req);
-  const { data, error } = await result.admin.from("user_profiles")
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const authorization = req.headers.get("Authorization");
+  if (!anonKey || !authorization) throw new Error("Could not verify administrator permissions.");
+
+  // Read the caller's own profile under their authenticated JWT and existing RLS policy.
+  // The service_role currently has no SELECT privilege on user_profiles.
+  const profileClient = createClient(Deno.env.get("SUPABASE_URL")!, anonKey, {
+    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await profileClient.from("user_profiles")
     .select("role").eq("user_id", result.user.id).single();
-  if (error || data?.role !== "admin") throw new Error("Administrator permission is required.");
+  if (error) {
+    console.error("Admin profile lookup failed:", { code: error.code, message: error.message });
+    throw new Error("Could not verify administrator permissions.");
+  }
+  if (data?.role !== "admin") throw new Error("Administrator permission is required.");
   return result;
 }

@@ -1,5 +1,5 @@
-const CACHE="florida-customer-pulse-v19";
-const FILES=["./","./index.html","./styles.css","./app.js?v=mobile-dashboard-v7","./tools.js?v=2","./tools-preview.html","./config.js","./manifest.webmanifest","./assets/icon.svg","./assets/icon-192.png","./assets/icon-512.png","./assets/curaleaf-logo.png","./assets/florida-customer-pulse-logo.png"];
+const CACHE="florida-customer-pulse-v20";
+const FILES=["./","./index.html","./styles.css?v=mobile-tools-v2","./app.js?v=google-oauth-v1","./tools.js?v=2","./tools-preview.html","./config.js","./manifest.webmanifest","./assets/icon.svg","./assets/icon-192.png","./assets/icon-512.png","./assets/curaleaf-logo.png","./assets/florida-customer-pulse-logo.png"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",event=>{

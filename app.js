@@ -102,6 +102,15 @@ $("login-form").addEventListener("submit",async event=>{
  }catch(e){authError(e.message||"Could not sign in.");}
  finally{loginInProgress=false;button.disabled=false;button.textContent="Sign in";}
 });
+$("google-login-button").addEventListener("click",async()=>{
+ const button=$("google-login-button");authError("");button.disabled=true;button.textContent="Connecting to Google…";
+ try{
+  if(!authReady)throw new Error("Authentication is not configured yet.");
+  const redirectTo=new URL("./",window.location.href).toString();
+  const {error}=await supabaseClient.auth.signInWithOAuth({provider:"google",options:{redirectTo}});
+  if(error)throw error;
+ }catch(e){authError(e.message||"Could not start Google sign-in.");button.disabled=false;button.innerHTML='<span class="google-mark" aria-hidden="true">G</span> Continue with Google';}
+});
 $("set-password-form").addEventListener("submit",async event=>{event.preventDefault();authError("");try{const password=$("new-password").value;if(password.length<12)throw new Error("Use at least 12 characters.");const {error}=await supabaseClient.auth.updateUser({password});if(error)throw error;$("set-password-form").hidden=true;awaitingInvitePassword=false;activeSessionUserId=null;await startAuthenticatedSession((await supabaseClient.auth.getSession()).data.session);}catch(e){authError(e.message||"Could not set password.");}});
 $("signout-button").addEventListener("click",async()=>{await supabaseClient?.auth.signOut();});
 supabaseClient?.auth.onAuthStateChange((event,session)=>{
@@ -132,12 +141,28 @@ async function acceptInviteFromTokenHash(){
  }
 }
 $("accept-invite-button").addEventListener("click",acceptInviteFromTokenHash);
+async function completeOAuthCallback(){
+ const params=new URLSearchParams(window.location.search);
+ const code=params.get("code");
+ const oauthError=params.get("error_description")||params.get("error");
+ if(oauthError){history.replaceState(null,"",location.pathname+location.hash);showLogin(oauthError);return true;}
+ if(!code)return false;
+ const button=$("google-login-button");button.disabled=true;button.textContent="Finishing Google sign-in…";
+ try{
+  const {data,error}=await supabaseClient.auth.exchangeCodeForSession(code);
+  if(error)throw error;
+  history.replaceState(null,"",location.pathname);
+  await startAuthenticatedSession(data.session);
+ }catch(e){history.replaceState(null,"",location.pathname);showLogin(e.message||"Google sign-in could not be completed.");}
+ return true;
+}
 if(!authReady){inviteVerificationInProgress=false;showLogin("Secure sign-in is being configured. Please check back after the administrator completes setup.");}
 else if(inviteTokenHash){
  if(inviteType==="invite"){
   $("login-form").hidden=true;$("set-password-form").hidden=true;$("accept-invite-panel").hidden=false;$("auth-screen").hidden=false;$("app-content").hidden=true;
  }else{inviteVerificationInProgress=false;showLogin("This invitation link is incomplete. Ask the administrator to generate a fresh link.");}
-}else{supabaseClient.auth.getSession().then(({data})=>{if(data.session)startAuthenticatedSession(data.session);else showLogin();});}
+}else if(new URLSearchParams(window.location.search).has("code")||new URLSearchParams(window.location.search).has("error")){completeOAuthCallback();}
+else{supabaseClient.auth.getSession().then(({data})=>{if(data.session)startAuthenticatedSession(data.session);else showLogin();});}
 
 const adminDialog=$("admin-dialog");
 $("admin-open").addEventListener("click",()=>{if(currentRole!=="admin")return;adminDialog.showModal();loadAdminUsers();});
